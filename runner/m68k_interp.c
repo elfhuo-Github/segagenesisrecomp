@@ -1524,6 +1524,7 @@ M68kiStatus m68k_interp_run_ram_handler(uint32_t entry_pc, uint32_t *out_exit_pc
     g_m68ki_insn_count = 0;
     g_m68ki_discover_count = 0;
     if (out_exit_pc) *out_exit_pc = 0;
+    uint32_t entry_ret = m68k_read32(g_cpu.A[7]);  /* caller's return address */
 
     int depth = 0;
     for (;;) {
@@ -1546,11 +1547,28 @@ M68kiStatus m68k_interp_run_ram_handler(uint32_t entry_pc, uint32_t *out_exit_pc
             return M68KI_HALT_UNIMPL;
         }
 
-        /* Depth-0 subroutine return: peek, don't pop (A7-neutral). */
+        /* Depth-0 subroutine return: normally peek, don't pop (A7-neutral) and
+         * end the capsule, mirroring the generated caller's single pop. BUT if
+         * the routine pushed its own return address internally -- the computed
+         * call idiom  pea <cont>; jmp <table>(pc,d0.w); ...; rts  used by this
+         * game's RAM sprite/bitplane blitters -- the rts is a LOCAL return that
+         * must pop the pushed address and keep executing inside the capsule.
+         * Distinguish the two by comparing the return target with the caller's
+         * return address captured at entry: only a match is the capsule exit. */
         if (depth == 0 && (ins.mnemonic == MN_RTS || ins.mnemonic == MN_RTR)) {
             uint32_t ret = (ins.mnemonic == MN_RTR)
                                ? m68k_read32(g_cpu.A[7] + 2u)
                                : m68k_read32(g_cpu.A[7]);
+            if (ins.mnemonic == MN_RTS && ret != entry_ret) {
+                /* local computed return: pop it and continue in-capsule */
+                g_cpu.A[7] += 4u;
+                g_cpu.PC = ret & 0xFFFFFFu;
+                interp_account_cycles(&ins);
+                if (++g_m68ki_insn_count > M68KI_INSN_GUARD) {
+                    g_m68ki_bad_pc = g_cpu.PC; return M68KI_HALT_GUARD;
+                }
+                continue;
+            }
             if (out_exit_pc) *out_exit_pc = ret & 0xFFFFFFu;
             return M68KI_OK;
         }
