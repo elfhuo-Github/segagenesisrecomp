@@ -8,10 +8,20 @@
 #include "video/genesis_bus.h"
 #include "video/genesis_machine.h"
 
-/* One NTSC wall frame of master cycles: the audio chips advance this far every
- * tick whatever the 68K did (see main.c's comment history on why the drain is
- * the wall frame, not g_audio_cycle_counter). */
-#define GENESIS_SIM_WALL_FRAME_MASTER_CYCLES 895780u
+/* One wall frame of master cycles: the audio chips (which run at master/240)
+ * advance this far every tick whatever the 68K did (see main.c's comment
+ * history on why the drain is the wall frame, not g_audio_cycle_counter).
+ * Scaled to the console's frame geometry (NTSC 262 / PAL 313 lines) so the
+ * per-frame sample count tracks the frame DURATION. The chips' sample clock is
+ * fixed at master/240, so a PAL frame needs 313/262× the samples of an NTSC
+ * one; leaving this at the NTSC constant drains every PAL frame ~16% short,
+ * starving the DRC bridge's ring (audible underrun plus a ~40 ms audio_flush
+ * stall each frame). The NTSC value is the historical 895780, so a 262-line
+ * spec stays bit-exact unchanged. */
+static uint32_t sim_wall_frame_master_cycles(void)
+{
+    return (uint32_t)((uint64_t)895780u * (uint64_t)g_console_lines_per_frame / 262u);
+}
 
 /* glue.c frame bookkeeping (not in glue.h; main.c historically declared
  * them at the call site). */
@@ -62,7 +72,7 @@ int genesis_sim_step(const GenesisSimInput *in, const GenesisSimAudio *audio,
                                     s_scratch_psg, SIM_SCRATCH_PSG_FRAMES, NULL };
         const GenesisSimAudio *a = (audio && audio->fm && audio->psg) ? audio : &scratch;
         size_t fm_n = 0, psg_n = 0;
-        audio_mixer_drain(GENESIS_SIM_WALL_FRAME_MASTER_CYCLES,
+        audio_mixer_drain(sim_wall_frame_master_cycles(),
                           a->fm,  a->fm_cap,  &fm_n,
                           a->psg, a->psg_cap, &psg_n);
         if (a->fm_count)  *a->fm_count  = fm_n;
