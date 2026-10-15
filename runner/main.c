@@ -2781,6 +2781,16 @@ int main(int argc, char *argv[])
                            g_game_spec.sram_start, g_game_spec.sram_end);
     runner_sram_init_and_load(rom_path);
 
+    /* Console region (version register $A10001). gbus_init leaves the engine
+     * default of 0x80 (overseas NTSC); a spec may pin the region its cartridge
+     * expects, which the ROM's own region check reads at boot (e.g. the JP
+     * McDonald's cartridge parks on its "wrong region" screen at 0x80). */
+    switch (g_game_spec.console_region) {
+        case GAME_REGION_JAPAN:  g_machine.bus.version = 0x00u; break;
+        case GAME_REGION_EUROPE: g_machine.bus.version = 0xC0u; break;
+        default:                 break;   /* keep the engine default (0x80) */
+    }
+
 #if GENESIS_HAS_RECOMP_NET
     genesis_identity_sha256(rom_raw, rom_raw_len, s_rom_sha256);
 #endif

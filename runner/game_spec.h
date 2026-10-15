@@ -37,6 +37,18 @@ typedef struct {
     void      (*handler)(int id, const char *json_line);
 } GameDebugCommand;
 
+/*
+ * Console region the guest sees at the version/region register ($A10001) —
+ * i.e. how a ROM's own region check identifies the console it is running on.
+ * gbus_init defaults the register to 0x80 (overseas NTSC); a game may override
+ * it via GameSpec.console_region. Enumerated rather than a raw byte because
+ * 0x00 is itself a valid value (Japanese domestic) and a zero-initialised
+ * spec must keep the engine default.
+ */
+#define GAME_REGION_DEFAULT 0   /* 0x80 — overseas NTSC (engine default)      */
+#define GAME_REGION_JAPAN   1   /* 0x00 — Japanese domestic NTSC              */
+#define GAME_REGION_EUROPE  2   /* 0xC0 — PAL (frame timing not modelled)     */
+
 typedef struct GameSpec {
     const GameVideo *video;          /* NULL = native VDP presentation only */
     unsigned logical_players;       /* 0 = native two ports; host input/UI capacity */
@@ -111,6 +123,14 @@ typedef struct GameSpec {
      * cart). */
     uint32_t    sram_start;
     uint32_t    sram_end;
+
+    /* ---- Console region ---- */
+    /* Value the guest reads at the $A10001 version register; one of the
+     * GAME_REGION_* constants above. GAME_REGION_DEFAULT (0) keeps the engine
+     * default of 0x80 (overseas NTSC). A game whose cartridge region-checks at
+     * boot can pin the region it expects — the JP McDonald's cartridge parks
+     * on its "wrong region" screen when it reads 0x80. */
+    int         console_region;
 
     /* ---- Entry points (recompiled C) ---- */
     /* Called once on the game thread. Must contain the game's main
