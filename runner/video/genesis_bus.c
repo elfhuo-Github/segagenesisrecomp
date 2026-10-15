@@ -60,7 +60,12 @@ extern void glue_charge_68k_stall(uint32_t cycles);
  * so this small synchronous model exists solely for CPU-visible status reads.
  * It deliberately models BUSY as always clear; only timer flag B is currently
  * needed by supported software. */
-#define MASTER_CYCLES_PER_FRAME  (262ull * 3420ull)
+/* Master cycles per frame — the stride of the audio cycle stamp. The frame line
+ * count is region-dependent (NTSC 262 / PAL 313); genesis_machine.c owns
+ * g_console_lines_per_frame and sets it once at boot from the GameSpec. Read it
+ * live so the audio stamp can never disagree with machine_run_frame. */
+extern uint32_t g_console_lines_per_frame;
+#define MASTER_CYCLES_PER_FRAME  ((uint64_t)g_console_lines_per_frame * 3420ull)
 #define YM_TIMER_B_MASTER_TICK   (16ull * 144ull * 7ull)
 
 static uint64_t ym_abs_z80_stamp(void)

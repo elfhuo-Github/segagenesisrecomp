@@ -47,7 +47,7 @@ typedef struct {
  */
 #define GAME_REGION_DEFAULT 0   /* 0x80 — overseas NTSC (engine default)      */
 #define GAME_REGION_JAPAN   1   /* 0x00 — Japanese domestic NTSC              */
-#define GAME_REGION_EUROPE  2   /* 0xC0 — PAL (frame timing not modelled)     */
+#define GAME_REGION_EUROPE  2   /* 0xC0 — PAL: 313-line frames at ~50.16 Hz   */
 
 typedef struct GameSpec {
     const GameVideo *video;          /* NULL = native VDP presentation only */
@@ -129,7 +129,11 @@ typedef struct GameSpec {
      * GAME_REGION_* constants above. GAME_REGION_DEFAULT (0) keeps the engine
      * default of 0x80 (overseas NTSC). A game whose cartridge region-checks at
      * boot can pin the region it expects — the JP McDonald's cartridge parks
-     * on its "wrong region" screen when it reads 0x80. */
+     * on its "wrong region" screen when it reads 0x80, and the EU one parks on
+     * its region screen at 0x80 but boots at 0xC0 (PAL). GAME_REGION_EUROPE
+     * additionally selects PAL frame geometry (313 lines/frame, ~50.16 Hz) so
+     * the game does not run ~20% fast on NTSC pacing; see g_console_lines_per_frame
+     * and the region_fps resolution in main.c. */
     int         console_region;
 
     /* ---- Entry points (recompiled C) ---- */

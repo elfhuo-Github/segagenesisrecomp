@@ -364,8 +364,12 @@ void machine_set_pad_type(int port, int six_button)
     if (port >= 0 && port < 2) g_machine.bus.pad_type[port] = six_button ? 1 : 0;
 }
 
-/* NTSC raster timing. */
-#define LINES_TOTAL     262
+/* Raster timing. The line count is region-dependent (NTSC 262 / PAL 313) and
+ * lives in g_console_lines_per_frame (declared in genesis_machine.h), set once
+ * at boot from the GameSpec; per-line timing is identical in both regions. */
+#define LINES_TOTAL_NTSC 262
+#define LINES_TOTAL_PAL  313
+uint32_t g_console_lines_per_frame = LINES_TOTAL_NTSC;
 #define MASTER_PER_LINE 3420u
 #define M68K_PER_LINE   488u
 #define Z80_PER_LINE    228u
@@ -473,7 +477,7 @@ void machine_run_frame(GenesisScanlineSink sink, void *user)
     static uint8_t  idxbuf[GVDP_MAX_WIDTH];
     static uint32_t rowbuf[GVDP_MAX_WIDTH];
 
-    for (int line = 0; line < LINES_TOTAL; line++) {
+    for (int line = 0; line < (int)g_console_lines_per_frame; line++) {
         unsigned irq = gvdp_begin_scanline(&m->vdp, line);
         g_snd_line = (unsigned)line;   /* [SND-TRACE] */
         s_line_base = (uint32_t)line * MASTER_PER_LINE;

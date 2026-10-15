@@ -84,9 +84,11 @@ uint32_t  g_vblank_threshold   = 109312;  /* scanline 224 × 488 cycles */
  * instead of collapsing the handler's register burst onto a single
  * FM-sample boundary (the "boop/squelch" artifact). */
 uint32_t  g_audio_cycle_counter = 0;
-/* NTSC wall-frame cycle budget — used in CYCLE_ACCURATE mode to cap
- * game-fiber work at hardware rate. 262 scanlines × 488 cycles each. */
-#define NTSC_CYCLES_PER_WALL_FRAME 127856u
+/* Wall-frame 68K cycle budget — used in CYCLE_ACCURATE mode to cap game-fiber
+ * work at hardware rate. A frame is g_console_lines_per_frame scanlines × 488
+ * 68K cycles each (NTSC 262 / PAL 313); the region value is set once at boot
+ * (genesis_machine.c) so this tracks machine_run_frame. */
+#define WALL_FRAME_68K_CYCLES ((uint32_t)g_console_lines_per_frame * 488u)
 static int s_vblank_fired_this_frame   = 0;  /* cycle-budget latch: 1 means
                                                 * the wall frame's VBla budget
                                                 * has been consumed (whether or
@@ -1356,7 +1358,7 @@ void glue_check_vblank(void)
      * Well-behaved games yield every frame (g_cycle_accumulator resets in
      * glue_end_of_wall_frame) and never reach this. */
     if (s_interleave_active && !s_in_vblank_service
-        && g_cycle_accumulator >= 2u * NTSC_CYCLES_PER_WALL_FRAME) {
+        && g_cycle_accumulator >= 2u * WALL_FRAME_68K_CYCLES) {
         check_cycle_budget();
     }
     return;

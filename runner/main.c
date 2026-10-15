@@ -2791,6 +2791,17 @@ int main(int argc, char *argv[])
         default:                 break;   /* keep the engine default (0x80) */
     }
 
+    /* Frame geometry follows the region, exactly as the hardware does: a PAL
+     * console runs 313 scanlines/frame at ~50.16 Hz, NTSC 262 at 59.94. Both
+     * use the same per-line timing, so the master-clock rate — and with it
+     * every cycle-based guest timer and the master/240 audio sample clock the
+     * DRC servo tracks — stays constant; only the frame rate and line count
+     * change. Set once here, before the first frame (a no-op for NTSC specs,
+     * so the verified USA build is byte-for-byte unchanged). */
+    g_console_lines_per_frame = (g_game_spec.console_region == GAME_REGION_EUROPE)
+                                    ? 313u   /* PAL  */
+                                    : 262u;  /* NTSC */
+
 #if GENESIS_HAS_RECOMP_NET
     genesis_identity_sha256(rom_raw, rom_raw_len, s_rom_sha256);
 #endif
@@ -2846,10 +2857,19 @@ int main(int argc, char *argv[])
         fprintf(stderr, "[display] interlace_display=%s\n",
                 s_interlace_display_mode == INTERLACE_DISPLAY_RAW ? "raw" : "tv");
     }
-    /* --target-fps wins over debug.ini, which wins over default 59.94. */
+    /* --target-fps wins over debug.ini, which wins over the region default.
+     * NTSC is 59.94 Hz (60000/1001). PAL is derived from the same frame
+     * geometry the guest runs (313 lines × 3420 master cycles): master clock /
+     * one frame, rather than a flat 50.0, so the guest cycle rate — and with it
+     * the master/240 audio sample clock the DRC servo tracks — stays inside
+     * that servo's ±0.5% correction range. */
+    const double region_fps =
+        (g_game_spec.console_region == GAME_REGION_EUROPE)
+            ? ((double)GENESIS_MASTER_CLOCK_NTSC / (3420.0 * 313.0))
+            : (60000.0 / 1001.0);
     double target_fps = (target_fps_cli > 0.0)     ? target_fps_cli :
                         (target_fps_from_ini > 0.0) ? target_fps_from_ini :
-                                                       (60000.0 / 1001.0);  /* NTSC */
+                                                      region_fps;
     fprintf(stderr, "[pacer] target frame rate: %.4f fps\n", target_fps);
     int debug_port = debug_port_cli ? debug_port_cli :
                      (debug_port_from_ini ? debug_port_from_ini :

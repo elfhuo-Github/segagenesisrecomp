@@ -52,6 +52,16 @@ int machine_load_state(FILE *f);
 size_t machine_rb_save(void *dst, size_t cap);
 int    machine_rb_load(const void *src, size_t len);
 
+/* Console frame geometry. NTSC is 262 lines/frame, PAL is 313. Set ONCE at boot
+ * from the GameSpec's console_region (runner/main.c) before the first frame.
+ * Both regions keep the same master clock (~53.69 MHz) and per-line timing, so
+ * the audio sample clock (master/240) and every cycle-based guest timing stay
+ * consistent; only the frame rate (59.94 vs ~50.16 Hz) and the total line count
+ * differ. The one value drives machine_run_frame's loop, the audio cycle-stamp
+ * frame stride (genesis_bus.c) and glue's wall-frame cycle budget, so those can
+ * never disagree. */
+extern uint32_t g_console_lines_per_frame;
+
 /* Run one full frame: per scanline, advance the 68K (fiber), step the Z80, tick
  * the VDP, deliver interrupts, and emit active scanlines via `sink`. */
 void machine_run_frame(GenesisScanlineSink sink, void *user);
